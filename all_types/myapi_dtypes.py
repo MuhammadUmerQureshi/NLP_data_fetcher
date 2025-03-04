@@ -1,8 +1,11 @@
-from typing import Dict, List, TypeVar, Generic, Optional, Literal
+from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
 
 from pydantic import BaseModel, Field
 
+from all_types.internal_types import LyrInfoInCtlgSave
+
 U = TypeVar("U")
+
 
 class Coordinate(BaseModel):
     lat: Optional[float] = None
@@ -20,11 +23,60 @@ class ReqModel(BaseModel, Generic[U]):
 
 
 class ReqCityCountry(BaseModel):
-    city_name: str
+    city_name: Optional[str] = None
     country_name: str
+
+
+class boxmapProperties(BaseModel):
+    name: str
+    rating: float
+    address: str
+    phone: str
+    website: str
+    business_status: str
+    user_ratings_total: int
+
+
+class ReqSavePrdcerCtlg(ReqUserId):
+    prdcer_ctlg_name: str
+    subscription_price: str
+    ctlg_description: str
+    total_records: int
+    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
+    # thumbnail_url: str
+    display_elements: dict
+    catalog_layer_options: dict
+
+
+class ReqDeletePrdcerCtlg(ReqUserId):
+    prdcer_ctlg_id: str
+
+
+class ZoneLayerInfo(BaseModel):
+    lyr_id: str
+    property_key: str
+
+
+class ReqCatalogId(BaseModel):
+    catalogue_dataset_id: str
+
 
 class ReqPrdcerLyrMapData(ReqUserId):
     prdcer_lyr_id: Optional[str] = ""
+
+
+class ReqSavePrdcerLyer(ReqPrdcerLyrMapData):
+    prdcer_layer_name: str
+    bknd_dataset_id: str
+    points_color: str
+    layer_legend: str
+    layer_description: str
+    city_name: str
+
+
+class ReqDeletePrdcerLayer(BaseModel):
+    user_id: str
+    prdcer_lyr_id: str
 
 
 class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData, Coordinate):
@@ -40,6 +92,74 @@ class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData, Coordinate):
     _excluded_types: Optional[list[str]] = []
 
 
+# class ReqCustomData(ReqCityCountry):
+#     boolean_query: Optional[str] = ""
+#     page_token: Optional[str] = ""
+#     included_types: list[str] = []
+#     excluded_types: list[str] = []
+#     zoom_level: Optional[int] = 0
+
+
+# class ReqLocation(Coordinate):
+#     radius: float
+#     bounding_box: list[float]
+#     page_token: Optional[str] = ""
+#     text_search: Optional[str] = ""
+#     boolean_query: Optional[str] = ""
+#     zoom_level: Optional[int] = 0
+
+
+class ReqFetchCtlgLyrs(BaseModel):
+    prdcer_ctlg_id: str
+    as_layers: bool
+    user_id: str
+
+
+class ReqCostEstimate(ReqCityCountry):
+    included_categories: List[str]
+    excluded_categories: List[str]
+
+
+class ReqStreeViewCheck(Coordinate):
+    pass
+
+
+class ReqGeodata(Coordinate):
+    bounding_box: list[float]
+
+
+class ReqNearestRoute(ReqPrdcerLyrMapData):
+    points: List[Coordinate]
+
+
+class ReqGradientColorBasedOnZone(BaseModel):
+    color_grid_choice: list[str]
+    change_lyr_id: str
+    change_lyr_name: str
+    change_lyr_orginal_color: Optional[str] = "#CCCCCC"
+    change_lyr_new_color: Optional[str] = "#FFFFFF"
+    based_on_lyr_id: str
+    based_on_lyr_name: str
+    coverage_value: float  # [10min , 20min or 300 m or 500m]
+    coverage_property: str  # [Drive_time or Radius]
+    color_based_on: str  # ["rating" or "user_ratings_total"]
+    list_names: Optional[List[str]] = []
+    
+# User prompt -> llm
+class ReqPrompt(BaseModel):
+    user_id: str
+    layers: List[Dict[str, Any]]
+    prompt: str
+
+class ValidationResult(BaseModel):
+    is_valid: bool
+    reason: Optional[str] = None
+    suggestions: Optional[List[str]] = None
+    endpoint: Optional[str] = None
+    body: ReqGradientColorBasedOnZone = None
+
+
+
 class ReqLLMFetchDataset(BaseModel):
     """Extract Location Based Information from the Query"""
 
@@ -47,23 +167,6 @@ class ReqLLMFetchDataset(BaseModel):
         default = "",
         description = "Original query passed by the user."
     )
-    queryStatus: Literal["Valid", "Invalid"] = Field(
-        default="Valid",
-        description="Status of the query that depends on approved categories.It must be either 'Valid' or 'Invalid'"
-    )
-    message: str = Field(
-        default = "",
-        description = "Response message for the User after processing the query. It helps user to identify issues in the query"
-    )
-    requestStatus: Literal["Processed", "NotProcessed"] = Field(
-        default="NotProcessed",
-        description="Set to processed whenever an LLM encounters the query is processed by the LLM"
-    )
-    fetch_dataset_request: Optional[ReqFetchDataset] = Field(
-        default=None,
-        description="An object containing detailed request parameters for fetching dataset"
-    )
-    cost: str = Field(
-        default = '',
-        description = "The cost value returned by calculate_cost_tool"
-    )
+
+class ReqFilter(ReqGradientColorBasedOnZone):
+    threshold: float|str
